@@ -1,25 +1,21 @@
-from flask import Blueprint, request, jsonify, render_template
-from .model import train_model, predict
+from flask import Blueprint, render_template, request, jsonify
+from .model import load_models, make_predictions
 
-app_routes = Blueprint('app_routes', __name__)
+main = Blueprint("main", __name__)
 
-# Index route
-@app_routes.route('/')
+# Load models when the app starts
+models = load_models()
+
+@main.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
-# Train the model
-@app_routes.route('/train', methods=['POST'])
-def train():
-    result = train_model('data/modified_pressure_data.csv')
-    return jsonify(result)
-
-# Predict route
-@app_routes.route('/predict', methods=['POST'])
-def predict_ulcer():
-    input_data = request.json.get('input_data', [])
-    if len(input_data) != 6:
-        return jsonify({"error": "Invalid input data. Six pressure values are required."}), 400
+@main.route("/predict", methods=["POST"])
+def predict():
+    # Extract form data
+    input_data = request.form.to_dict()
     
-    result = predict(input_data)
-    return jsonify(result)
+    # Convert input data to the required format (if needed)
+    predictions = make_predictions(models, input_data)
+    
+    return jsonify(predictions)
