@@ -1,5 +1,4 @@
-
-import os
+﻿import os
 
 import pandas as pd
 from flask import Blueprint, jsonify, render_template, request
