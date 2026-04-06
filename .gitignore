@@ -1,13 +1,5 @@
-# Ignore Python virtual environment
-venv/
-
-# Ignore Python bytecode files
+﻿
+.venv/
+__pycache__/
 *.pyc
-
-# Ignore VSCode settings folder
-.vscode/
-
-# Ignore system files (macOS and Windows)
-.DS_Store
-Thumbs.db
 

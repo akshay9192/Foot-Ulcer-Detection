@@ -1,71 +1,84 @@
-from flask import Blueprint, render_template, request, jsonify
-from .model import load_models, make_predictions
-import pandas as pd
+
 import os
+
+import pandas as pd
+from flask import Blueprint, jsonify, render_template, request
 from werkzeug.utils import secure_filename
+
+from .image_model import load_image_model, predict_image
+from .model import load_models, make_predictions
 
 main = Blueprint("main", __name__)
 
-# Load models when the app starts
-models = load_models()
+UPLOAD_DIR = "app/uploads"
+REQUIRED_FIELDS = ["field1", "field2", "field3", "field4", "field5", "field6"]
+ALLOWED_CSV_EXTENSIONS = {"csv"}
+ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "bmp"}
 
-# Ensure the 'uploads' directory exists
-if not os.path.exists('app/uploads'):
-    os.makedirs('app/uploads')
+models = load_models()
+image_model = load_image_model()
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 @main.route("/")
 def index():
     return render_template("index.html")
 
+
 @main.route("/predict", methods=["POST"])
 def predict():
-    if 'csv_file' not in request.files:
+    if "csv_file" not in request.files:
         return jsonify({"error": "No file part"}), 400
 
-    file = request.files['csv_file']
-    if file.filename == '' or not allowed_file(file.filename):
+    file = request.files["csv_file"]
+    if file.filename == "" or not allowed_file(file.filename, ALLOWED_CSV_EXTENSIONS):
         return jsonify({"error": "Invalid file type"}), 400
 
     filename = secure_filename(file.filename)
-    file_path = os.path.join("app/uploads", filename)
+    file_path = os.path.join(UPLOAD_DIR, filename)
 
     try:
         file.save(file_path)
-
-        # Load CSV into DataFrame
         df = pd.read_csv(file_path)
 
-        # Validate required fields
-        required_fields = ['field1', 'field2', 'field3', 'field4', 'field5', 'field6']
-        if not set(required_fields).issubset(df.columns):
-            return jsonify({"error": "Missing required fields in the CSV file"}), 400
+        if not set(REQUIRED_FIELDS).issubset(df.columns):
+            return jsonify({"error": "Missing required fields", "required_fields": REQUIRED_FIELDS}), 400
 
-        # Extract and format input data
-        input_data = df[required_fields].astype(float).values  # Ensure 2D ndarray
-
-        print("Shape of input_data before reshaping:", input_data.shape)
-
-        # Ensure input is 2D
-        if input_data.ndim == 3:
-            input_data = input_data.reshape(input_data.shape[1], input_data.shape[2])
-        elif input_data.ndim != 2:
-            raise ValueError(f"Unexpected input shape: {input_data.shape}")
-
-        print("Shape of input_data after reshaping:", input_data.shape)
-
-        # Make predictions
+        input_data = df[REQUIRED_FIELDS].astype(float)
         predictions = make_predictions(models, input_data)
-
-        # Remove uploaded file
-        os.remove(file_path)
-
         return jsonify(predictions)
 
-    except Exception as e:
-        return jsonify({"error": f"Error processing the file: {e}"}), 500
+    except Exception as exc:
+        return jsonify({"error": f"Error processing file: {exc}"}), 500
+
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 
-# Helper function to check allowed file types
-def allowed_file(filename):
-    ALLOWED_EXTENSIONS = {'csv'}
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+@main.route("/predict-image", methods=["POST"])
+def predict_image_route():
+    if "image_file" not in request.files:
+        return jsonify({"error": "No image file part"}), 400
+
+    file = request.files["image_file"]
+    if file.filename == "" or not allowed_file(file.filename, ALLOWED_IMAGE_EXTENSIONS):
+        return jsonify({"error": "Invalid image type"}), 400
+
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(UPLOAD_DIR, filename)
+
+    try:
+        file.save(file_path)
+        with open(file_path, "rb") as image_stream:
+            result = predict_image(image_model, image_stream)
+        return jsonify(result)
+    except Exception as exc:
+        return jsonify({"error": f"Error processing image: {exc}"}), 500
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+
+
+def allowed_file(filename, allowed_extensions):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_extensions

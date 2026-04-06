@@ -1,3 +1,4 @@
+@'
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,10 +8,20 @@
 </head>
 <body>
     <h1>Diabetic Foot Ulcer Prediction</h1>
+
+    <h2>Tabular sensor CSV prediction (legacy)</h2>
     <form action="/predict" method="POST" enctype="multipart/form-data">
         <label for="csv_file">Choose CSV File:</label>
         <input type="file" id="csv_file" name="csv_file" accept=".csv">
-        <button type="submit">Predict</button>
+        <button type="submit">Predict CSV</button>
+    </form>
+
+    <h2>Image-based ulcer screening (new)</h2>
+    <form action="/predict-image" method="POST" enctype="multipart/form-data">
+        <label for="image_file">Choose Foot Image:</label>
+        <input type="file" id="image_file" name="image_file" accept=".png,.jpg,.jpeg,.bmp">
+        <button type="submit">Predict Image</button>
     </form>
 </body>
 </html>
+'@ | Set-Content -Encoding UTF8 app\templates\index.html
